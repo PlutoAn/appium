@@ -1,0 +1,137 @@
+#! /bin/bash
+
+# install 脚本主要用于jenkins打包完成后，保存安装包的逻辑 
+# iOS copy 安装包，压缩dSYM文件到指定目录
+
+app_dir=""
+app_ios_dir=""
+copyToiOSpath="/Users/yangtingzhang/Documents/jenkinsWorkspace/AppiumScript/iOS/script/config/"
+copyToAndroidpath="/Users/qingting/Documents/jenkins_android/workspace/androidSlaveAppiumScript/android/script/config/"
+archiver_dir="/Users/yangtingzhang/Documents/jenkins_iOS/"
+origin_app_name_path=""
+origin_app_name=""
+appBackupFilePath=""
+main_app_ios_name="QTRadio.ipa"
+main_app_android_name="app-release.apk"
+platfrom=""
+action=""
+# now_date="$(date +%s)"
+# bundlerVersion=$(/usr/libexec/PlistBuddy -c "print CFBundleShortVersionString" /Users/yangtingzhang/Documents/jenkinsWorkspace/QTRadio_iOS/QTRadio/Plist/QTTourAppStore.plist)
+
+# 初始化xcodebuild所需参数
+function InitXbuild() {
+    app_ios_dir="/Users/yangtingzhang/Documents/jenkins_iOS/app/"
+    origin_app_ios_dsym="/Users/yangtingzhang/Documents/jenkins_iOS/build/Test-iphoneos/QTRadioDevR91 copy.app.dSYM"
+    appBackupFilePath="/Users/yangtingzhang/Documents/jenkinsWorkspace/QTRadio_iOS/"
+}
+
+# 逻辑过期，保存和删除文件包的任务由jenkins完成
+# 删除过期安装包，过期时间为3天
+# function clearExpiredData() {
+#     cd ${app_dir}
+#     for _item in `ls`; do
+#       if [ ${_item} == ".DS_Store" ]; then
+#           continue
+#       fi
+#       echo "${_item}"
+#       value=$(echo ${_item} | cut -d _ -f 4)
+#       echo ${value}
+#       value=$(echo ${value} | cut -d . -f 1)
+#       echo ${value}
+#       value=`expr ${value} + 259200`
+#       echo ${value}
+#       if [ ${value} -lt ${now_date} ]; then
+#           echo ${doc}/${_item}
+#           `rm -rf ${doc}/${_item}`
+#       else 
+#           echo ${doc}/${_item}
+#       fi
+#     done
+# }
+
+function copyToPackage() {
+    if [ ${platfrom} == "iOS" ];then
+        copyToiOS
+    elif [ ${platfrom} == "android" ]; then
+        copyToAndroid
+    else
+        echo "Failed to copyToPackage"
+        exit 1
+    fi
+}
+
+function copyToiOS() {
+    if [ ${action} == "commit" ];then
+         origin_app_name_path="/Users/yangtingzhang/Documents/jenkins_iOS/QTRadio_ios_commit.ipa"
+         app_dir=${app_ios_dir}commit/
+         appBackupFilePath="/Users/yangtingzhang/Documents/jenkinsWorkspace/QTRadio_iOS/"
+    elif [ ${action} == "full" ];then
+         origin_app_ios_dsym="/Users/yangtingzhang/Documents/jenkins_iOS/fullbuild/Test-iphoneos/QTRadioDevR91 copy.app.dSYM"
+         origin_app_name_path="/Users/yangtingzhang/Documents/jenkins_iOS/QTRadio_ios_full.ipa"
+         app_dir=${app_ios_dir}full/
+         appBackupFilePath="/Users/yangtingzhang/Documents/jenkinsWorkspace/QTRadio_iOS_full/"
+    fi
+    `rm -rf ${copyToiOSpath}${main_app_ios_name}` # remove old ipa in appium 
+    `rm -rf "${appBackupFilePath}QTRadio".ipa` # remove old ipa in jenkins workspace
+    `rm -rf "${appBackupFilePath}dSYM.tar"` # remove old dSYM in jenkins workspace
+    `cp -r "${origin_app_name_path}" "${appBackupFilePath}QTRadio".ipa` # copy ipa to jenkins workspace
+    `tar cvf "${appBackupFilePath}dSYM.tar"  "${origin_app_ios_dsym}"` # copy dSYM to jenkins workspace
+    `cp -r "${origin_app_name_path}" "${copyToiOSpath}${main_app_ios_name}"` # copy ipa to appium
+    if [ $? -ne 0 ];then
+        echo "Failed to copyToiOS"
+        exit 1
+    fi
+    echo "Success to copyToiOS"
+}
+
+function copyToAndroid() {
+  if [ ${action} == "commit" ];then
+      origin_app_name="/Users/qingting/Documents/jenkins_android/workspace/QTRadio_android/app/build/outputs/apk/"
+  elif [ ${action} == "full" ];then
+      origin_app_name="/Users/qingting/Documents/jenkins_android/workspace/QTRadio_android_full/app/build/outputs/apk/"
+  fi
+  `rm -rf ${copyToAndroidpath}${main_app_android_name}` # remove old apk in appium
+  `cp -rf ${origin_app_name}${main_app_android_name} ${copyToAndroidpath}${main_app_android_name}` # copy apk to appium
+  if [ $? -ne 0 ];then
+      echo "Failed to copyToAndroid"
+      exit 1
+  fi
+}
+
+function __usage() {
+    cat "install.usage.txt"
+}
+
+InitXbuild
+
+for arg in $@; do
+  key=$(echo $arg | cut -d = -f 1 | tr '[:upper:]' '[:lower:]')
+    if [ $? -ne 0 ]; then
+        echo "Wrong Command."
+        __usage
+        exit 1
+    fi
+    value=$(echo $arg | cut -d = -f 2)
+    echo ${value}
+    case $key in
+    "--platfrom")
+        platfrom=$value
+        ;;
+    "--help")
+        __usage
+        exit 0
+        ;;
+    "--action")
+        action=$value
+        ;;
+    *)
+        echo "Unknow command $key."
+        __usage
+        exit 1
+        ;;
+    esac
+done
+
+copyToPackage
+
+exit 0

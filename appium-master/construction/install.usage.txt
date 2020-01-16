@@ -1,0 +1,8 @@
+ Automatic Construction Script, version 1.0.0
+ Usage:
+ install [options]
+ install --help
+
+ OPTIONS:
+ --platfrom              iOS or android
+ --action                commit or full
